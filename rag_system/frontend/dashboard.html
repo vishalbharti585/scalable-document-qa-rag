@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - RAG Enterprise QA</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">R</div>
+        <span class="sidebar-title">RAG System</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/dashboard.html" class="nav-item active">
+          <span>📊</span> Dashboard
+        </a>
+        <a href="/documents.html" class="nav-item">
+          <span>📄</span> Documents
+        </a>
+        <a href="/collections.html" class="nav-item">
+          <span>📁</span> Collections
+        </a>
+        <a href="/chat.html" class="nav-item">
+          <span>💬</span> RAG Chat
+        </a>
+        <a href="/settings.html" class="nav-item">
+          <span>⚙️</span> Settings
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-profile">
+          <div class="user-avatar" id="user-avatar">U</div>
+          <div class="user-info">
+            <span class="user-name" id="user-name">Loading...</span>
+            <span class="user-email" id="user-email">...</span>
+          </div>
+        </div>
+        <button id="logout-btn" class="btn btn-secondary btn-sm" title="Sign Out">🚪</button>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <header class="topbar">
+        <h1 class="topbar-title">Overview Dashboard</h1>
+        <div style="display: flex; gap: 12px;">
+          <a href="/documents.html" class="btn btn-primary btn-sm">+ Upload Document</a>
+          <a href="/chat.html" class="btn btn-secondary btn-sm">💬 Open Chat</a>
+        </div>
+      </header>
+
+      <div class="page-body">
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-header">
+              <span>TOTAL DOCUMENTS</span>
+              <span>📄</span>
+            </div>
+            <div class="stat-value" id="stat-total-docs">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-header">
+              <span>INDEXED IN FAISS</span>
+              <span>⚡</span>
+            </div>
+            <div class="stat-value" id="stat-processed-docs" style="color: var(--success);">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-header">
+              <span>ACTIVE COLLECTIONS</span>
+              <span>📁</span>
+            </div>
+            <div class="stat-value" id="stat-collections">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-header">
+              <span>CHAT SESSIONS</span>
+              <span>💬</span>
+            </div>
+            <div class="stat-value" id="stat-conversations">-</div>
+          </div>
+        </div>
+
+        <!-- Recent Documents Card -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Recent Document Ingestion</h2>
+            <a href="/documents.html" class="btn btn-secondary btn-sm">View All</a>
+          </div>
+          <div class="card-body" style="padding: 0;">
+            <div class="table-responsive">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Filename</th>
+                    <th>Type</th>
+                    <th>Size</th>
+                    <th>Chunks</th>
+                    <th>Status</th>
+                    <th>Uploaded</th>
+                  </tr>
+                </thead>
+                <tbody id="recent-docs-tbody">
+                  <tr>
+                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Loading documents...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Architecture & Storage Note -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Vector Storage Health & Engine Status</h2>
+          </div>
+          <div class="card-body">
+            <p style="font-size: 14px; color: var(--text-muted); line-height: 1.6; margin-bottom: 12px;">
+              Vectors are indexed in high-dimensional dense float32 arrays managed by <strong>FAISS</strong> in isolated persistent directories.
+              Relational metadata, document chunks, and chat history reside in <strong>PostgreSQL</strong>.
+            </p>
+            <div style="display: flex; gap: 16px; font-size: 13px;">
+              <div><strong>Vector Index:</strong> <span class="badge badge-success">FAISS Persistent</span></div>
+              <div><strong>Isolation:</strong> <span class="badge badge-success">Strict Per-User Directory</span></div>
+              <div><strong>Relational Store:</strong> <span class="badge badge-success">PostgreSQL (SQLAlchemy)</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (!window.api.isAuthenticated()) {
+      window.location.href = "/login.html";
+    }
+
+    document.getElementById("logout-btn").addEventListener("click", () => window.api.logout());
+
+    async function loadDashboard() {
+      try {
+        const userRes = await window.api.getMe();
+        if (userRes && userRes.data) {
+          const user = userRes.data.user;
+          document.getElementById("user-name").textContent = user.full_name || user.email.split("@")[0];
+          document.getElementById("user-email").textContent = user.email;
+          document.getElementById("user-avatar").textContent = (user.full_name || user.email)[0].toUpperCase();
+        }
+
+        const [docRes, colRes, convRes] = await Promise.all([
+          window.api.getDocuments(null, 1),
+          window.api.getCollections(),
+          window.api.getConversations()
+        ]);
+
+        const docs = docRes.data.documents || [];
+        const collections = colRes.data.collections || [];
+        const convs = convRes.data.conversations || [];
+
+        const totalDocs = docRes.data.pagination.total;
+        const processedDocs = docs.filter(d => d.processing_status === "processed").length;
+
+        document.getElementById("stat-total-docs").textContent = totalDocs;
+        document.getElementById("stat-processed-docs").textContent = processedDocs;
+        document.getElementById("stat-collections").textContent = collections.length;
+        document.getElementById("stat-conversations").textContent = convs.length;
+
+        const tbody = document.getElementById("recent-docs-tbody");
+        tbody.innerHTML = "";
+
+        if (docs.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">No documents uploaded yet. Click "+ Upload Document" to start.</td></tr>';
+          return;
+        }
+
+        docs.slice(0, 5).forEach(doc => {
+          const tr = document.createElement("tr");
+
+          const tdName = document.createElement("td");
+          tdName.style.fontWeight = "600";
+          tdName.textContent = doc.original_filename;
+
+          const tdType = document.createElement("td");
+          tdType.textContent = (doc.mime_type || "").split("/")[1] || "file";
+
+          const tdSize = document.createElement("td");
+          tdSize.textContent = `${(doc.file_size / 1024).toFixed(1)} KB`;
+
+          const tdChunks = document.createElement("td");
+          tdChunks.textContent = doc.chunk_count || 0;
+
+          const tdStatus = document.createElement("td");
+          const badge = document.createElement("span");
+          badge.className = `badge ${doc.processing_status === "processed" ? "badge-success" : doc.processing_status === "failed" ? "badge-danger" : "badge-warning"}`;
+          badge.textContent = doc.processing_status;
+          tdStatus.appendChild(badge);
+
+          const tdDate = document.createElement("td");
+          tdDate.textContent = new Date(doc.created_at).toLocaleDateString();
+
+          tr.appendChild(tdName);
+          tr.appendChild(tdType);
+          tr.appendChild(tdSize);
+          tr.appendChild(tdChunks);
+          tr.appendChild(tdStatus);
+          tr.appendChild(tdDate);
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error("Dashboard loading error:", err);
+      }
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>

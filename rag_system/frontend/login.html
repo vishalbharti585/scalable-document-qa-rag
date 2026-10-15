@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In - RAG Enterprise QA</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .auth-container {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .auth-card {
+      width: 100%;
+      max-width: 420px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      box-shadow: var(--shadow-md);
+    }
+  </style>
+</head>
+<body>
+  <div class="auth-container">
+    <div class="auth-card">
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+        <div class="sidebar-logo">R</div>
+        <h2 style="font-size: 20px; font-weight: 700;">Sign in to RAG QA</h2>
+      </div>
+
+      <div id="alert-box" class="alert alert-danger" style="display: none;"></div>
+
+      <form id="login-form">
+        <div class="form-group">
+          <label class="form-label" for="email">Email Address</label>
+          <input type="email" id="email" class="form-control" placeholder="name@company.com" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input type="password" id="password" class="form-control" placeholder="••••••••" required autocomplete="current-password">
+        </div>
+        <button type="submit" id="submit-btn" class="btn btn-primary" style="width: 100%; padding: 10px; margin-top: 8px;">
+          <span>Sign In</span>
+        </button>
+      </form>
+
+      <div style="margin-top: 24px; text-align: center; font-size: 13px; color: var(--text-muted);">
+        Don't have an account? <a href="/register.html" style="color: var(--primary); font-weight: 600; text-decoration: none;">Create one here</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (window.api.isAuthenticated()) {
+      window.location.href = "/dashboard.html";
+    }
+
+    const form = document.getElementById("login-form");
+    const alertBox = document.getElementById("alert-box");
+    const submitBtn = document.getElementById("submit-btn");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      alertBox.style.display = "none";
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner"></span> Signing in...';
+
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      try {
+        await window.api.login(email, password);
+        window.location.href = "/dashboard.html";
+      } catch (err) {
+        alertBox.textContent = err.message;
+        alertBox.style.display = "block";
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Sign In';
+      }
+    });
+  </script>
+</body>
+</html>

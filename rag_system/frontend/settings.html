@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings - RAG Enterprise QA</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">R</div>
+        <span class="sidebar-title">RAG System</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/dashboard.html" class="nav-item"><span>📊</span> Dashboard</a>
+        <a href="/documents.html" class="nav-item"><span>📄</span> Documents</a>
+        <a href="/collections.html" class="nav-item"><span>📁</span> Collections</a>
+        <a href="/chat.html" class="nav-item"><span>💬</span> RAG Chat</a>
+        <a href="/settings.html" class="nav-item active"><span>⚙️</span> Settings</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-profile">
+          <div class="user-avatar" id="user-avatar">U</div>
+          <div class="user-info">
+            <span class="user-name" id="user-name">User</span>
+            <span class="user-email" id="user-email">...</span>
+          </div>
+        </div>
+        <button id="logout-btn" class="btn btn-secondary btn-sm" title="Sign Out">🚪</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <h1 class="topbar-title">System Settings & Architecture</h1>
+      </header>
+
+      <div class="page-body">
+        <!-- Account Card -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">User Account Details</h2>
+          </div>
+          <div class="card-body">
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px; font-size: 14px;">
+              <span style="color: var(--text-muted);">Account ID:</span>
+              <span id="account-id" style="font-family: var(--font-mono); font-size: 13px;">...</span>
+
+              <span style="color: var(--text-muted);">Full Name:</span>
+              <span id="account-name">...</span>
+
+              <span style="color: var(--text-muted);">Email:</span>
+              <span id="account-email">...</span>
+
+              <span style="color: var(--text-muted);">Tenant Isolation:</span>
+              <span><span class="badge badge-success">Dedicated Vector Storage Scoped</span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Engine Configuration -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Vector Search & AI Configuration</h2>
+          </div>
+          <div class="card-body">
+            <div style="display: grid; grid-template-columns: 180px 1fr; gap: 16px; font-size: 14px;">
+              <span style="color: var(--text-muted);">Vector Engine:</span>
+              <span><strong>FAISS (Facebook AI Similarity Search)</strong> - Flat Inner Product Index (Cosine Similarity)</span>
+
+              <span style="color: var(--text-muted);">Persistence Strategy:</span>
+              <span>Atomic <code>index.faiss</code> binary disk serialization with metadata & manifest tracking</span>
+
+              <span style="color: var(--text-muted);">Relational Database:</span>
+              <span><strong>PostgreSQL</strong> via SQLAlchemy ORM (No pgvector used)</span>
+
+              <span style="color: var(--text-muted);">Supported Documents:</span>
+              <span>PDF (PyPDF with page preservation), TXT (UTF-8), DOCX (docx2txt)</span>
+
+              <span style="color: var(--text-muted);">Chunking Strategy:</span>
+              <span>Recursive character splitting (Default: 1000 chars, 200 overlap)</span>
+
+              <span style="color: var(--text-muted);">Similarity Threshold:</span>
+              <span>Default: 0.35 (Queries below threshold trigger honest insufficient-context responses)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (!window.api.isAuthenticated()) window.location.href = "/login.html";
+    document.getElementById("logout-btn").addEventListener("click", () => window.api.logout());
+
+    async function init() {
+      const userRes = await window.api.getMe();
+      if (userRes && userRes.data) {
+        const u = userRes.data.user;
+        document.getElementById("user-name").textContent = u.full_name || u.email.split("@")[0];
+        document.getElementById("user-email").textContent = u.email;
+        document.getElementById("user-avatar").textContent = (u.full_name || u.email)[0].toUpperCase();
+
+        document.getElementById("account-id").textContent = u.id;
+        document.getElementById("account-name").textContent = u.full_name || "—";
+        document.getElementById("account-email").textContent = u.email;
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

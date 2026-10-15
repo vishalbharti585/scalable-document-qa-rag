@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Collections - RAG Enterprise QA</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">R</div>
+        <span class="sidebar-title">RAG System</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/dashboard.html" class="nav-item"><span>📊</span> Dashboard</a>
+        <a href="/documents.html" class="nav-item"><span>📄</span> Documents</a>
+        <a href="/collections.html" class="nav-item active"><span>📁</span> Collections</a>
+        <a href="/chat.html" class="nav-item"><span>💬</span> RAG Chat</a>
+        <a href="/settings.html" class="nav-item"><span>⚙️</span> Settings</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-profile">
+          <div class="user-avatar" id="user-avatar">U</div>
+          <div class="user-info">
+            <span class="user-name" id="user-name">User</span>
+            <span class="user-email" id="user-email">...</span>
+          </div>
+        </div>
+        <button id="logout-btn" class="btn btn-secondary btn-sm" title="Sign Out">🚪</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <h1 class="topbar-title">Document Collections</h1>
+      </header>
+
+      <div class="page-body">
+        <div id="alert-box" class="alert" style="display: none;"></div>
+
+        <!-- Create Collection Card -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Create New Collection</h2>
+          </div>
+          <div class="card-body">
+            <form id="col-form" style="display: flex; gap: 16px; align-items: flex-end;">
+              <div style="flex: 1;">
+                <label class="form-label" for="col-name">Collection Name</label>
+                <input type="text" id="col-name" class="form-control" placeholder="e.g. Q3 Financial Reports" required>
+              </div>
+              <div style="flex: 2;">
+                <label class="form-label" for="col-desc">Description (Optional)</label>
+                <input type="text" id="col-desc" class="form-control" placeholder="e.g. Audit documentation and SEC filings">
+              </div>
+              <button type="submit" id="col-submit" class="btn btn-primary" style="height: 42px;">Create Collection</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Collections Grid -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Your Collections</h2>
+          </div>
+          <div class="card-body" style="padding: 0;">
+            <div class="table-responsive">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Documents</th>
+                    <th>Created</th>
+                    <th style="text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="cols-tbody">
+                  <tr><td colspan="5" style="text-align: center; padding: 24px; color: var(--text-muted);">Loading collections...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (!window.api.isAuthenticated()) window.location.href = "/login.html";
+    document.getElementById("logout-btn").addEventListener("click", () => window.api.logout());
+
+    const alertBox = document.getElementById("alert-box");
+
+    function showAlert(msg, isSuccess = false) {
+      alertBox.textContent = msg;
+      alertBox.className = `alert ${isSuccess ? "alert-success" : "alert-danger"}`;
+      alertBox.style.display = "block";
+      setTimeout(() => { alertBox.style.display = "none"; }, 5000);
+    }
+
+    async function loadCollections() {
+      const tbody = document.getElementById("cols-tbody");
+      try {
+        const res = await window.api.getCollections();
+        const cols = res.data.collections || [];
+        tbody.innerHTML = "";
+
+        if (cols.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">No collections created yet. Use the form above to organize your documents.</td></tr>';
+          return;
+        }
+
+        cols.forEach(c => {
+          const tr = document.createElement("tr");
+
+          const tdName = document.createElement("td");
+          tdName.style.fontWeight = "600";
+          tdName.textContent = c.name;
+
+          const tdDesc = document.createElement("td");
+          tdDesc.textContent = c.description || "—";
+
+          const tdCount = document.createElement("td");
+          tdCount.textContent = `${c.document_count} docs`;
+
+          const tdDate = document.createElement("td");
+          tdDate.textContent = new Date(c.created_at).toLocaleDateString();
+
+          const tdActions = document.createElement("td");
+          tdActions.style.textAlign = "right";
+
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "btn btn-danger btn-sm";
+          deleteBtn.textContent = "Delete";
+          deleteBtn.onclick = async () => {
+            if (!confirm(`Delete collection "${c.name}"? Documents in this collection will be preserved.`)) return;
+            try {
+              await window.api.deleteCollection(c.id);
+              showAlert(`Deleted collection "${c.name}".`, true);
+              loadCollections();
+            } catch (err) {
+              showAlert(err.message, false);
+            }
+          };
+
+          tdActions.appendChild(deleteBtn);
+          tr.appendChild(tdName);
+          tr.appendChild(tdDesc);
+          tr.appendChild(tdCount);
+          tr.appendChild(tdDate);
+          tr.appendChild(tdActions);
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--danger); padding: 24px;">Error: ${err.message}</td></tr>`;
+      }
+    }
+
+    document.getElementById("col-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("col-name").value.trim();
+      const desc = document.getElementById("col-desc").value.trim();
+      try {
+        await window.api.createCollection(name, desc);
+        showAlert(`Collection "${name}" created!`, true);
+        document.getElementById("col-name").value = "";
+        document.getElementById("col-desc").value = "";
+        await loadCollections();
+      } catch (err) {
+        showAlert(err.message, false);
+      }
+    });
+
+    async function init() {
+      const userRes = await window.api.getMe();
+      if (userRes && userRes.data) {
+        const u = userRes.data.user;
+        document.getElementById("user-name").textContent = u.full_name || u.email.split("@")[0];
+        document.getElementById("user-email").textContent = u.email;
+        document.getElementById("user-avatar").textContent = (u.full_name || u.email)[0].toUpperCase();
+      }
+      await loadCollections();
+    }
+
+    init();
+  </script>
+</body>
+</html>

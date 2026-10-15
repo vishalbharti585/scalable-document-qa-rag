@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Account - RAG Enterprise QA</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .auth-container {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .auth-card {
+      width: 100%;
+      max-width: 440px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      box-shadow: var(--shadow-md);
+    }
+  </style>
+</head>
+<body>
+  <div class="auth-container">
+    <div class="auth-card">
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+        <div class="sidebar-logo">R</div>
+        <h2 style="font-size: 20px; font-weight: 700;">Create Account</h2>
+      </div>
+
+      <div id="alert-box" class="alert alert-danger" style="display: none;"></div>
+
+      <form id="register-form">
+        <div class="form-group">
+          <label class="form-label" for="full_name">Full Name</label>
+          <input type="text" id="full_name" class="form-control" placeholder="Jane Doe" required autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="email">Work Email</label>
+          <input type="email" id="email" class="form-control" placeholder="jane@company.com" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password">Password (min 8 characters)</label>
+          <input type="password" id="password" class="form-control" placeholder="••••••••" minlength="8" required autocomplete="new-password">
+        </div>
+        <button type="submit" id="submit-btn" class="btn btn-primary" style="width: 100%; padding: 10px; margin-top: 8px;">
+          <span>Register & Start Indexing</span>
+        </button>
+      </form>
+
+      <div style="margin-top: 24px; text-align: center; font-size: 13px; color: var(--text-muted);">
+        Already have an account? <a href="/login.html" style="color: var(--primary); font-weight: 600; text-decoration: none;">Sign in here</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (window.api.isAuthenticated()) {
+      window.location.href = "/dashboard.html";
+    }
+
+    const form = document.getElementById("register-form");
+    const alertBox = document.getElementById("alert-box");
+    const submitBtn = document.getElementById("submit-btn");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      alertBox.style.display = "none";
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner"></span> Creating account...';
+
+      const full_name = document.getElementById("full_name").value;
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      try {
+        await window.api.register(email, password, full_name);
+        window.location.href = "/dashboard.html";
+      } catch (err) {
+        alertBox.textContent = err.message;
+        alertBox.style.display = "block";
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Register & Start Indexing';
+      }
+    });
+  </script>
+</body>
+</html>

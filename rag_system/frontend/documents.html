@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documents - RAG Enterprise QA</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">R</div>
+        <span class="sidebar-title">RAG System</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/dashboard.html" class="nav-item"><span>📊</span> Dashboard</a>
+        <a href="/documents.html" class="nav-item active"><span>📄</span> Documents</a>
+        <a href="/collections.html" class="nav-item"><span>📁</span> Collections</a>
+        <a href="/chat.html" class="nav-item"><span>💬</span> RAG Chat</a>
+        <a href="/settings.html" class="nav-item"><span>⚙️</span> Settings</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-profile">
+          <div class="user-avatar" id="user-avatar">U</div>
+          <div class="user-info">
+            <span class="user-name" id="user-name">User</span>
+            <span class="user-email" id="user-email">...</span>
+          </div>
+        </div>
+        <button id="logout-btn" class="btn btn-secondary btn-sm" title="Sign Out">🚪</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <h1 class="topbar-title">Document Manager</h1>
+      </header>
+
+      <div class="page-body">
+        <div id="alert-box" class="alert" style="display: none;"></div>
+
+        <!-- Upload Card -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Upload & Index New Documents</h2>
+          </div>
+          <div class="card-body">
+            <div style="display: flex; gap: 16px; margin-bottom: 20px; align-items: center;">
+              <div style="flex: 1;">
+                <label class="form-label" for="collection-select">Target Collection (Optional)</label>
+                <select id="collection-select" class="form-control">
+                  <option value="">Default (Unassigned)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="upload-zone" id="upload-zone">
+              <input type="file" id="file-input" accept=".pdf,.txt,.docx" style="display: none;">
+              <div class="upload-icon">📁</div>
+              <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">Drag and drop document files here</h3>
+              <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Supports PDF, TXT, and DOCX (Up to 16MB)</p>
+              <button type="button" class="btn btn-secondary" onclick="document.getElementById('file-input').click()">
+                Browse Files
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Documents Table Card -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Indexed Documents</h2>
+            <button class="btn btn-secondary btn-sm" onclick="loadDocuments()">🔄 Refresh</button>
+          </div>
+          <div class="card-body" style="padding: 0;">
+            <div class="table-responsive">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Filename</th>
+                    <th>Collection</th>
+                    <th>Size</th>
+                    <th>Pages / Chunks</th>
+                    <th>Status</th>
+                    <th>Uploaded</th>
+                    <th style="text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="docs-tbody">
+                  <tr><td colspan="7" style="text-align: center; padding: 24px; color: var(--text-muted);">Loading documents...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (!window.api.isAuthenticated()) window.location.href = "/login.html";
+    document.getElementById("logout-btn").addEventListener("click", () => window.api.logout());
+
+    const alertBox = document.getElementById("alert-box");
+    const uploadZone = document.getElementById("upload-zone");
+    const fileInput = document.getElementById("file-input");
+    const collectionSelect = document.getElementById("collection-select");
+
+    function showAlert(msg, isSuccess = false) {
+      alertBox.textContent = msg;
+      alertBox.className = `alert ${isSuccess ? "alert-success" : "alert-danger"}`;
+      alertBox.style.display = "block";
+      setTimeout(() => { alertBox.style.display = "none"; }, 6000);
+    }
+
+    // Drag and drop handlers
+    uploadZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      uploadZone.classList.add("dragover");
+    });
+    uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("dragover"));
+    uploadZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove("dragover");
+      if (e.dataTransfer.files.length > 0) {
+        handleUpload(e.dataTransfer.files[0]);
+      }
+    });
+
+    fileInput.addEventListener("change", (e) => {
+      if (e.target.files.length > 0) {
+        handleUpload(e.target.files[0]);
+      }
+    });
+
+    async function handleUpload(file) {
+      const colId = collectionSelect.value || null;
+      uploadZone.innerHTML = '<span class="spinner"></span> Extracting text, chunking, and indexing into FAISS...';
+      try {
+        await window.api.uploadDocument(file, colId);
+        showAlert(`Document "${file.name}" indexed successfully!`, true);
+        await loadDocuments();
+      } catch (err) {
+        showAlert(err.message, false);
+      } finally {
+        uploadZone.innerHTML = `
+          <input type="file" id="file-input" accept=".pdf,.txt,.docx" style="display: none;">
+          <div class="upload-icon">📁</div>
+          <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">Drag and drop document files here</h3>
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Supports PDF, TXT, and DOCX (Up to 16MB)</p>
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('file-input').click()">Browse Files</button>
+        `;
+        document.getElementById("file-input").addEventListener("change", (e) => {
+          if (e.target.files.length > 0) handleUpload(e.target.files[0]);
+        });
+      }
+    }
+
+    async function loadCollections() {
+      try {
+        const res = await window.api.getCollections();
+        const cols = res.data.collections || [];
+        cols.forEach(c => {
+          const opt = document.createElement("option");
+          opt.value = c.id;
+          opt.textContent = c.name;
+          collectionSelect.appendChild(opt);
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function loadDocuments() {
+      const tbody = document.getElementById("docs-tbody");
+      try {
+        const res = await window.api.getDocuments();
+        const docs = res.data.documents || [];
+        tbody.innerHTML = "";
+
+        if (docs.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 24px;">No documents found. Upload a file above.</td></tr>';
+          return;
+        }
+
+        docs.forEach(doc => {
+          const tr = document.createElement("tr");
+
+          const tdName = document.createElement("td");
+          tdName.style.fontWeight = "600";
+          tdName.textContent = doc.original_filename;
+
+          const tdCol = document.createElement("td");
+          tdCol.textContent = doc.collection_name || "—";
+
+          const tdSize = document.createElement("td");
+          tdSize.textContent = `${(doc.file_size / 1024).toFixed(1)} KB`;
+
+          const tdChunks = document.createElement("td");
+          tdChunks.textContent = `${doc.page_count ? doc.page_count + ' p. / ' : ''}${doc.chunk_count} chunks`;
+
+          const tdStatus = document.createElement("td");
+          const badge = document.createElement("span");
+          badge.className = `badge ${doc.processing_status === "processed" ? "badge-success" : doc.processing_status === "failed" ? "badge-danger" : "badge-warning"}`;
+          badge.textContent = doc.processing_status;
+          tdStatus.appendChild(badge);
+
+          const tdDate = document.createElement("td");
+          tdDate.textContent = new Date(doc.created_at).toLocaleDateString();
+
+          const tdActions = document.createElement("td");
+          tdActions.style.textAlign = "right";
+
+          const reprocessBtn = document.createElement("button");
+          reprocessBtn.className = "btn btn-secondary btn-sm";
+          reprocessBtn.style.marginRight = "6px";
+          reprocessBtn.textContent = "Reprocess";
+          reprocessBtn.onclick = async () => {
+            if (!confirm(`Reprocess "${doc.original_filename}"?`)) return;
+            try {
+              await window.api.reprocessDocument(doc.id);
+              showAlert(`Reprocessed "${doc.original_filename}" successfully.`, true);
+              loadDocuments();
+            } catch (err) {
+              showAlert(err.message, false);
+            }
+          };
+
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "btn btn-danger btn-sm";
+          deleteBtn.textContent = "Delete";
+          deleteBtn.onclick = async () => {
+            if (!confirm(`Delete "${doc.original_filename}" and clean its vectors from FAISS?`)) return;
+            try {
+              await window.api.deleteDocument(doc.id);
+              showAlert(`Deleted "${doc.original_filename}" and refreshed FAISS index.`, true);
+              loadDocuments();
+            } catch (err) {
+              showAlert(err.message, false);
+            }
+          };
+
+          tdActions.appendChild(reprocessBtn);
+          tdActions.appendChild(deleteBtn);
+
+          tr.appendChild(tdName);
+          tr.appendChild(tdCol);
+          tr.appendChild(tdSize);
+          tr.appendChild(tdChunks);
+          tr.appendChild(tdStatus);
+          tr.appendChild(tdDate);
+          tr.appendChild(tdActions);
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--danger); padding: 24px;">Failed to load documents: ${err.message}</td></tr>`;
+      }
+    }
+
+    async function init() {
+      const userRes = await window.api.getMe();
+      if (userRes && userRes.data) {
+        const u = userRes.data.user;
+        document.getElementById("user-name").textContent = u.full_name || u.email.split("@")[0];
+        document.getElementById("user-email").textContent = u.email;
+        document.getElementById("user-avatar").textContent = (u.full_name || u.email)[0].toUpperCase();
+      }
+      await loadCollections();
+      await loadDocuments();
+    }
+
+    init();
+  </script>
+</body>
+</html>
