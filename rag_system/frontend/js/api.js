@@ -2,7 +2,7 @@
  * Centralized API Client for RAG System
  */
 
-const API_BASE = "/api/v1";
+const API_BASE = "https://scalable-document-qa-rag-backend.onrender.com/api/v1";
 
 class ApiClient {
   constructor() {
