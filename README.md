@@ -6,7 +6,7 @@ The project combines semantic search, vector embeddings, and Google's Gemini API
 
 ## 🌐 Live Demo
 
-**Live Application:** [Try the RAG Document Question Answering System](YOUR_LIVE_PROJECT_URL)
+**Live Application:** https://scalable-document-qa-rag-frontend.onrender.com
 
 
 ## 📌 Project Overview
